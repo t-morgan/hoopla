@@ -2,8 +2,8 @@
 
 import argparse
 
-from lib.inverted_index import InvertedIndex
 from lib.keyword_search import (
+    build_command,
     search_command,
 )
 
@@ -22,15 +22,13 @@ def main() -> None:
     match args.command:
         case "search":
             print("Searching for:", args.query)
-            docs = search_command(args.query)
-            for doc in docs:
-                print(f"{doc['id']}: {doc['title']}")
+            results = search_command(args.query)
+            for i, res in enumerate(results, 1):
+                print(f"{i}. ({res['id']}) {res['title']}")
         case "build":
-            index = InvertedIndex()
-            index.build()
-            index.save()
-            docs = index.get_documents("merida")
-            print(f"First document for token 'merida' = {docs[0]}")
+            print("Building inverted index...")
+            build_command()
+            print("Inverted index built successfully.")
         case _:
             parser.print_help()
 
