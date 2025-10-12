@@ -47,3 +47,18 @@ class InvertedIndex:
             pickle.dump(self.index, f)
         with open(DOCMAP_PATH, "wb") as f:
             pickle.dump(self.docmap, f)
+    
+    def load(self) -> None:
+        def load_pickle(path: str):
+            try:
+                with open(path, "rb") as f:
+                    return pickle.load(f)
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Required file not found: '{path}'")
+            except pickle.UnpicklingError as e:
+                raise ValueError(f"Corrupted pickle file: '{path}'") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error while loading '{path}': {e}") from e
+
+        self.index = load_pickle(INDEX_PATH)
+        self.docmap = load_pickle(DOCMAP_PATH)

@@ -22,9 +22,9 @@ def main() -> None:
     match args.command:
         case "search":
             print("Searching for:", args.query)
-            results = search_command(args.query)
-            for i, res in enumerate(results, 1):
-                print(f"{i}. {res['title']}")
+            docs = search_command(args.query)
+            for doc in docs:
+                print(f"{doc['id']}: {doc['title']}")
         case "build":
             index = InvertedIndex()
             index.build()
