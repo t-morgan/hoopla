@@ -19,14 +19,16 @@ class InvertedIndex():
         tokens = tokenize_text(text)
         for token in tokens:
             self.index[token].add(doc_id)
-        
-    
-    def get_documents(self, term):
+            
+    def get_document_ids(self, term):
         term = term.lower()
         if term not in self.index:
             return []
-        doc_ids = sorted(self.index[term])
+        return sorted(self.index[term])
+    
+    def get_documents(self, term):
         docs = []
+        doc_ids = self.get_document_ids(self.index[term])
         for id in doc_ids:
             docs.append(self.docmap[id])
         return docs
