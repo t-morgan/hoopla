@@ -31,6 +31,15 @@ class InvertedIndex:
             self.index[token].add(doc_id)
         for token in tokens:
             self.term_frequencies[self.__tf_key(doc_id, token)] += 1
+    
+    def get_bm25_idf(self, term:str) -> float:
+        tokens = tokenize_text(term)
+        if len(tokens) == 0 or len(tokens) > 1:
+            raise ValueError("Argument for term can only be one token")
+        token = tokens[0]
+        doc_count = len(self.docmap)
+        term_doc_count = len(self.get_document_ids(token))
+        return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
 
     def get_document_ids(self, term: str) -> List[int]:
         term = term.lower()

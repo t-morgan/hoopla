@@ -4,6 +4,12 @@ from .search_utils import (
 )
 from .text_utils import tokenize_text
 
+def bm25_idf_command(term: str) -> float:
+    index = InvertedIndex()
+    index.load()
+
+    return index.get_bm25_idf(term)
+
 
 def build_command() -> None:
     index = InvertedIndex()
