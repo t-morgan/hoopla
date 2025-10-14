@@ -4,7 +4,7 @@ import pickle
 import os
 from typing import Callable, Dict, Set, List
 
-from .search_utils import load_movies
+from .search_utils import BM25_K1, load_movies
 from .text_utils import tokenize_text
 
 
@@ -40,6 +40,10 @@ class InvertedIndex:
         doc_count = len(self.docmap)
         term_doc_count = len(self.get_document_ids(token))
         return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
+    
+    def get_bm25_tf(self, doc_id: int, term: str, k1: float = BM25_K1) -> float:
+        tf = self.get_tf(doc_id, term)
+        return (tf * (k1 + 1)) / (tf + k1)
 
     def get_document_ids(self, term: str) -> List[int]:
         term = term.lower()

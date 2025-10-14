@@ -1,5 +1,6 @@
 from .inverted_index import InvertedIndex
 from .search_utils import (
+    BM25_K1,
     DEFAULT_SEARCH_LIMIT,
 )
 from .text_utils import tokenize_text
@@ -9,6 +10,13 @@ def bm25_idf_command(term: str) -> float:
     index.load()
 
     return index.get_bm25_idf(term)
+
+
+def bm25_tf_command(doc_id: int, term: str, k1: float = BM25_K1) -> float:
+    index = InvertedIndex()
+    index.load()
+
+    return index.get_bm25_tf(doc_id, term)
 
 
 def build_command() -> None:
