@@ -12,3 +12,62 @@ cache/
 
 # Data
 data/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+*.pytest_cache/
+.pytest_cache/
+junit.xml
+
+# -----------------------------
+# PyCharm / IntelliJ
+# -----------------------------
+.idea/
+*.iml
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/httpRequests/
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+
+# User-specific stuff
+.idea/**/usage.statistics.xml
+.idea/**/assetWizardSettings.xml
+.idea/**/gradle.xml
+.idea/**/libraries/
+
+# -----------------------------
+# OS / Editor junk
+# -----------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -----------------------------
+# Jupyter / notebooks (optional)
+# -----------------------------
+.ipynb_checkpoints
+*.ipynb
+
+# -----------------------------
+# Local development artifacts
+# -----------------------------
+*.log
+*.tmp
+*.bak
+*.swp
