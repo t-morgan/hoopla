@@ -4,7 +4,7 @@ import pickle
 import os
 from typing import Callable, Dict, Set, List
 
-from .search_utils import BM25_K1, load_movies
+from .search_utils import BM25_B, BM25_K1, load_movies
 from .text_utils import tokenize_text
 
 
@@ -13,6 +13,7 @@ CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
 INDEX_PATH = os.path.join(CACHE_DIR, "index.pkl")
 DOCMAP_PATH = os.path.join(CACHE_DIR, "docmap.pkl")
 TERM_FREQUENCIES_PATH = os.path.join(CACHE_DIR, "term_frequencies.pkl")
+DOC_LENGTHS_PATH = os.path.join(CACHE_DIR, "doc_lengths.pkl")
 
 
 class InvertedIndex:
@@ -21,16 +22,7 @@ class InvertedIndex:
         self.index: Dict[str, Set[int]] = defaultdict(set)
         self.docmap: Dict[int, dict] = {}
         self.term_frequencies: Counter[str] = Counter()
-    
-    def __tf_key(self, doc_id: int, token: str) -> str:
-        return f"{doc_id}|{token}"
-
-    def __add_document(self, doc_id: int, text: str) -> None:
-        tokens = self.tokenize(text)
-        for token in set(tokens):
-            self.index[token].add(doc_id)
-        for token in tokens:
-            self.term_frequencies[self.__tf_key(doc_id, token)] += 1
+        self.doc_lengths: Dict[int, int] = {}
     
     def get_bm25_idf(self, term:str) -> float:
         tokens = tokenize_text(term)
@@ -41,9 +33,12 @@ class InvertedIndex:
         term_doc_count = len(self.get_document_ids(token))
         return math.log((doc_count - term_doc_count + 0.5) / (term_doc_count + 0.5) + 1)
     
-    def get_bm25_tf(self, doc_id: int, term: str, k1: float = BM25_K1) -> float:
+    def get_bm25_tf(self, doc_id: int, term: str, k1: float = BM25_K1, b: float = BM25_B) -> float:
         tf = self.get_tf(doc_id, term)
-        return (tf * (k1 + 1)) / (tf + k1)
+        doc_length = self.doc_lengths[doc_id]
+        avg_doc_length = self.__get_avg_doc_length()
+        length_norm = 1 - b + b * (doc_length / avg_doc_length)
+        return (tf * (k1 + 1)) / (tf + k1 * length_norm)
 
     def get_document_ids(self, term: str) -> List[int]:
         term = term.lower()
@@ -94,6 +89,7 @@ class InvertedIndex:
         save_pickle(INDEX_PATH, self.index)
         save_pickle(DOCMAP_PATH, self.docmap)
         save_pickle(TERM_FREQUENCIES_PATH, self.term_frequencies)
+        save_pickle(DOC_LENGTHS_PATH, self.doc_lengths)
     
     def load(self) -> None:
         def load_pickle(path: str):
@@ -110,3 +106,22 @@ class InvertedIndex:
         self.index = load_pickle(INDEX_PATH)
         self.docmap = load_pickle(DOCMAP_PATH)
         self.term_frequencies = load_pickle(TERM_FREQUENCIES_PATH)
+        self.doc_lengths = load_pickle(DOC_LENGTHS_PATH)
+    
+
+    def __add_document(self, doc_id: int, text: str) -> None:
+        tokens = self.tokenize(text)
+        for token in set(tokens):
+            self.index[token].add(doc_id)
+        for token in tokens:
+            self.term_frequencies[self.__tf_key(doc_id, token)] += 1
+        self.doc_lengths[doc_id] = len(tokens)
+    
+    def __get_avg_doc_length(self) -> float:
+        num_docs = len(self.docmap)
+        if num_docs == 0:
+            return 0.0
+        return sum(self.doc_lengths.values()) / num_docs
+    
+    def __tf_key(self, doc_id: int, token: str) -> str:
+        return f"{doc_id}|{token}"
