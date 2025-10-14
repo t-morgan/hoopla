@@ -4,7 +4,7 @@ import pickle
 import os
 from typing import Callable, Dict, Set, List
 
-from .search_utils import BM25_B, BM25_K1, load_movies
+from .search_utils import BM25_B, BM25_K1, DEFAULT_SEARCH_LIMIT, load_movies
 from .text_utils import tokenize_text
 
 
@@ -25,7 +25,7 @@ class InvertedIndex:
         self.doc_lengths: Dict[int, int] = {}
     
     def get_bm25_idf(self, term:str) -> float:
-        tokens = tokenize_text(term)
+        tokens = self.tokenize(term)
         if len(tokens) == 0 or len(tokens) > 1:
             raise ValueError("Argument for term can only be one token")
         token = tokens[0]
@@ -39,6 +39,9 @@ class InvertedIndex:
         avg_doc_length = self.__get_avg_doc_length()
         length_norm = 1 - b + b * (doc_length / avg_doc_length)
         return (tf * (k1 + 1)) / (tf + k1 * length_norm)
+    
+    def get_bm25(self, doc_id: int, term:str) -> float:
+        return self.get_bm25_tf(doc_id, term) * self.get_bm25_idf(term)
 
     def get_document_ids(self, term: str) -> List[int]:
         term = term.lower()
@@ -54,7 +57,7 @@ class InvertedIndex:
         return docs
     
     def get_idf(self, term:str) -> float:
-        tokens = tokenize_text(term)
+        tokens = self.tokenize(term)
         if len(tokens) == 0 or len(tokens) > 1:
             raise ValueError("Argument for term can only be one token")
         token = tokens[0]
@@ -77,19 +80,8 @@ class InvertedIndex:
     def build(self) -> None:
         movies = load_movies()
         for movie in movies:
-            self.__add_document(movie["id"], f"{movie['title']} {movie['description']}")
+            self.__add_document(movie["id"], self.__get_doc_text(movie))
             self.docmap[movie["id"]] = movie
-
-    def save(self) -> None:
-        def save_pickle(path: str, item: object):
-            with open(path, "wb") as f:
-                pickle.dump(item, f)
-        
-        os.makedirs(CACHE_DIR, exist_ok=True)
-        save_pickle(INDEX_PATH, self.index)
-        save_pickle(DOCMAP_PATH, self.docmap)
-        save_pickle(TERM_FREQUENCIES_PATH, self.term_frequencies)
-        save_pickle(DOC_LENGTHS_PATH, self.doc_lengths)
     
     def load(self) -> None:
         def load_pickle(path: str):
@@ -108,6 +100,46 @@ class InvertedIndex:
         self.term_frequencies = load_pickle(TERM_FREQUENCIES_PATH)
         self.doc_lengths = load_pickle(DOC_LENGTHS_PATH)
     
+    def save(self) -> None:
+        def save_pickle(path: str, item: object):
+            with open(path, "wb") as f:
+                pickle.dump(item, f)
+
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        save_pickle(INDEX_PATH, self.index)
+        save_pickle(DOCMAP_PATH, self.docmap)
+        save_pickle(TERM_FREQUENCIES_PATH, self.term_frequencies)
+        save_pickle(DOC_LENGTHS_PATH, self.doc_lengths)
+    
+    def bm25_search(self, query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
+        query_tokens = self.tokenize(query)
+
+        scores = defaultdict(float)
+        for doc in self.docmap.values():
+            for token in query_tokens:
+                scores[doc["id"]] += self.get_bm25(doc["id"], token)
+        sorted_scores = sorted(scores.items(), key=lambda score: score[1], reverse=True)
+        
+        results = []
+        for doc_id, score in sorted_scores[:limit]:
+            doc = self.docmap[doc_id].copy()
+            doc["score"] = score
+            results.append(doc)
+        return results
+        
+    def search(self, query: str, limit: int = DEFAULT_SEARCH_LIMIT) -> list[dict]:
+        query_tokens = self.tokenize(query)
+
+        results = {}
+        for token in query_tokens:
+            matching_docs = self.get_documents(token)
+            for doc in matching_docs:
+                results[doc["id"]] = doc
+                if len(results) >= limit:
+                    break
+            if len(results) >= limit:
+                break
+        return list(results.values())
 
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = self.tokenize(text)
@@ -122,6 +154,9 @@ class InvertedIndex:
         if num_docs == 0:
             return 0.0
         return sum(self.doc_lengths.values()) / num_docs
+    
+    def __get_doc_text(self, doc: Dict) -> str:
+        return f"{doc['title']} {doc['description']}"
     
     def __tf_key(self, doc_id: int, token: str) -> str:
         return f"{doc_id}|{token}"
