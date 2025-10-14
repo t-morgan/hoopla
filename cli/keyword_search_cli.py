@@ -36,7 +36,8 @@ def main() -> None:
                 print(f"{i}. ({res['id']}) {res['title']}")
         case "tf":
             print("Term frequency for:\n", f"\t- Document ID = {args.doc_id}", "\n", f"\t- Term = {args.term}")
-            tf_command(args.doc_id, args.term)
+            tf = tf_command(args.doc_id, args.term)
+            print(tf)
         case _:
             parser.print_help()
 
