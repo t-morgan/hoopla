@@ -7,6 +7,7 @@ from lib.keyword_search import (
     idf_command,
     search_command,
     tf_command,
+    tfidf_command,
 )
 
 
@@ -25,6 +26,10 @@ def main() -> None:
     tf_parser = subparsers.add_parser("tf", help="Get term frequency")
     tf_parser.add_argument("doc_id", type=int, help="TF document ID")
     tf_parser.add_argument("term", type=str, help="TF term")
+    
+    tfidf_parser = subparsers.add_parser("tfidf", help="Get TD-IDF")
+    tfidf_parser.add_argument("doc_id", type=int, help="TD-IDF document ID")
+    tfidf_parser.add_argument("term", type=str, help="TD-IDF term")
 
     args = parser.parse_args()
 
@@ -42,7 +47,6 @@ def main() -> None:
             for i, res in enumerate(results, 1):
                 print(f"{i}. ({res['id']}) {res['title']}")
         case "tf":
-            
             tf = tf_command(args.doc_id, args.term)
             print(
                 "Term frequency for:\n",
@@ -50,6 +54,11 @@ def main() -> None:
                 "\n",
                 f"\t- Term = {args.term}",
                 f"\nTF: {tf}"
+            )
+        case "tfidf":
+            tf_idf = tfidf_command(args.doc_id, args.term)
+            print(
+                f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}"
             )
         case _:
             parser.print_help()

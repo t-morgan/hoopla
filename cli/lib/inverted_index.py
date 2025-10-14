@@ -1,4 +1,5 @@
 from collections import defaultdict, Counter
+import math
 import pickle
 import os
 from typing import Callable, Dict, Set, List
@@ -44,12 +45,26 @@ class InvertedIndex:
                 docs.append(self.docmap[doc_id])
         return docs
     
+    def get_idf(self, term:str) -> float:
+        tokens = tokenize_text(term)
+        if len(tokens) == 0 or len(tokens) > 1:
+            raise ValueError("Argument for term can only be one token")
+        token = tokens[0]
+        doc_count = len(self.docmap)
+        term_doc_count = len(self.get_document_ids(token))
+        return math.log((doc_count + 1) / (term_doc_count + 1))
+    
     def get_tf(self, doc_id: int, term: str) -> int:
         tokens = self.tokenize(term)
         if len(tokens) == 0 or len(tokens) > 1:
             raise ValueError("Argument for term can only be one token")
         token = tokens[0]
         return self.term_frequencies[self.__tf_key(doc_id, token)]
+    
+    def get_tf_idf(self, doc_id: int, term: str) -> float:
+        tf = self.get_tf(doc_id, term)
+        idf = self.get_idf(term)
+        return tf * idf
 
     def build(self) -> None:
         movies = load_movies()
