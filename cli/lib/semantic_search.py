@@ -44,12 +44,53 @@ class SemanticSearch:
             return self.build_embeddings(documents)
         return self.embeddings
 
+    def search(self, query: str, top_k: int = 5):
+        if self.embeddings is None or self.documents is None:
+            raise ValueError("Embeddings and documents must be loaded or created before searching. Call `load_or_create_embeddings` first.")
+        query_embedding = self.generate_embedding(query)
+        similarities = np.array([cosine_similarity(query_embedding, doc_embedding) for doc_embedding in self.embeddings])
+        top_k_indices = np.argsort(similarities)[-top_k:][::-1]
+        results = []
+        for idx in top_k_indices:
+            doc = self.documents[idx]
+            results.append({
+                'title': doc['title'],
+                'description': doc['description'],
+                'score': similarities[idx]
+            })
+        return results
+
+def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    if vec1.shape != vec2.shape:
+        raise ValueError("Vectors must be of the same dimensions")
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+    if norm1 == 0 or norm2 == 0:
+        raise ValueError("One or both vectors are zero-vectors")
+    return np.dot(vec1, vec2) / (norm1 * norm2)
+
+def embed_query_text(query: str):
+    ss = SemanticSearch()
+    embedding = ss.generate_embedding(query)
+    print(f"Query: {query}")
+    print(f"First 5 dimensions: {embedding[:5]}")
+    print(f"Dimensions: {embedding.shape[0]}")
+
 def embed_text(text: str):
     ss = SemanticSearch()
     embedding = ss.generate_embedding(text)
     print(f"Text: {text}")
     print(f"First 3 dimensions: {embedding[:3]}")
     print(f"Dimensions: {embedding.shape[0]}")
+
+def search_movies(query: str, limit: int = 5):
+    ss = SemanticSearch()
+    movies = load_movies()
+    ss.load_or_create_embeddings(movies)
+    results = ss.search(query, top_k=limit)
+    for i, result in enumerate(results, 1):
+        print(f"{i}. {result['title']} (Score: {result['score']:.4f})")
+        print(f"   Description: {result['description']}\n")
 
 def verify_embeddings():
     ss = SemanticSearch()
