@@ -1,7 +1,7 @@
 import re
 
 
-def chunk_text(text, chunk_size=200, overlap=0):
+def chunk_text(text, chunk_size=200, overlap=0) -> list[str]:
     """Chunk the input text into smaller pieces of specified size.
 
     Args:
@@ -21,7 +21,7 @@ def chunk_text(text, chunk_size=200, overlap=0):
             break
     return chunks
 
-def semantic_chunk_text(text, max_chunk_size=4, overlap=0):
+def semantic_chunk_text(text, max_chunk_size=4, overlap=0) -> list[str]:
     """Chunk the input text semantically into sentence groups of specified size.
 
     Args:

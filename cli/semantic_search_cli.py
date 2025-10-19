@@ -2,6 +2,7 @@
 
 import argparse
 
+from lib.chunked_semantic_search import embed_chunks, search_chunked
 from lib.semantic_search import verify_model, embed_text, verify_embeddings, embed_query_text, search_movies
 from lib.text_chunker import chunk_text, semantic_chunk_text
 
@@ -15,11 +16,17 @@ def main():
     chunk_parser.add_argument("--overlap", type=int, default=0, help="Number of overlapping words between chunks")
     chunk_parser.add_argument("--overlap-percent", type=float, default=0.0, help="Percentage of overlap between chunks (0.0 to 1.0)")
 
+    embed_chunks_parser = subparsers.add_parser("embed_chunks", help="Generate embeddings for text chunks")
+
     embedding_parser = subparsers.add_parser("embed_text", help="Generate embedding for a given text")
     embedding_parser.add_argument("text", type=str, help="Text to generate embedding for")
 
     embedquery_parser = subparsers.add_parser("embedquery", help="Generate embedding for a given query text")
     embedquery_parser.add_argument("text", type=str, help="Query text to generate embedding for")
+
+    search_chunked_parser = subparsers.add_parser("search_chunked", help="Search for movies using chunked embeddings")
+    search_chunked_parser.add_argument("query", type=str, help="Search query")
+    search_chunked_parser.add_argument("--limit", type=int, default=5, help="Number of top results to return")
 
     search_parser = subparsers.add_parser("search", help="Search for movies")
     search_parser.add_argument("query", type=str, help="Search query")
@@ -47,12 +54,16 @@ def main():
             print(f"Chunking {len(args.text)} characters")
             for i, chunk in enumerate(chunks):
                 print(f"{i + 1}. {chunk}")
+        case "embed_chunks":
+            embed_chunks()
         case "embedquery":
             embed_query_text(args.text)
         case "embed_text":
             embed_text(args.text)
         case "search":
             search_movies(args.query, limit=args.limit)
+        case "search_chunked":
+            search_chunked(args.query, limit=args.limit)
         case "semantic_chunk":
             chunks = semantic_chunk_text(args.text, max_chunk_size=args.max_chunk_size, overlap=args.overlap)
             print(f"Semantically chunking {len(args.text)} characters")
