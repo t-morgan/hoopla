@@ -12,6 +12,8 @@ def main():
     chunk_parser = subparsers.add_parser("chunk", help="Chunk text into smaller pieces")
     chunk_parser.add_argument("text", type=str, help="Text to chunk")
     chunk_parser.add_argument("--chunk_size", type=int, default=200, help="Size of each chunk in words")
+    chunk_parser.add_argument("--overlap", type=int, default=0, help="Number of overlapping words between chunks")
+    chunk_parser.add_argument("--overlap_percent", type=float, default=0.0, help="Percentage of overlap between chunks (0.0 to 1.0)")
 
     embedding_parser = subparsers.add_parser("embed_text", help="Generate embedding for a given text")
     embedding_parser.add_argument("text", type=str, help="Text to generate embedding for")
@@ -31,7 +33,12 @@ def main():
 
     match args.command:
         case "chunk":
-            chunks = chunk_text(args.text, chunk_size=args.chunk_size)
+            if args.overlap != 0 and args.overlap_percent != 0:
+                print("Error: Specify either --overlap or --overlap_percent, not both.")
+                return
+            if args.overlap_percent > 0:
+                args.overlap = int(args.chunk_size * args.overlap_percent)
+            chunks = chunk_text(args.text, chunk_size=args.chunk_size, overlap=args.overlap)
             print(f"Chunking {len(args.text)} characters")
             for i, chunk in enumerate(chunks):
                 print(f"{i + 1}. {chunk}")
