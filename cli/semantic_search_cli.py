@@ -3,11 +3,15 @@
 import argparse
 
 from lib.semantic_search import verify_model, embed_text, verify_embeddings, embed_query_text, search_movies
-
+from lib.text_chunker import chunk_text
 
 def main():
     parser = argparse.ArgumentParser(description="Semantic Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    chunk_parser = subparsers.add_parser("chunk", help="Chunk text into smaller pieces")
+    chunk_parser.add_argument("text", type=str, help="Text to chunk")
+    chunk_parser.add_argument("--chunk_size", type=int, default=200, help="Size of each chunk in words")
 
     embedding_parser = subparsers.add_parser("embed_text", help="Generate embedding for a given text")
     embedding_parser.add_argument("text", type=str, help="Text to generate embedding for")
@@ -26,6 +30,11 @@ def main():
     args = parser.parse_args()
 
     match args.command:
+        case "chunk":
+            chunks = chunk_text(args.text, chunk_size=args.chunk_size)
+            print(f"Chunking {len(args.text)} characters")
+            for i, chunk in enumerate(chunks):
+                print(f"{i + 1}. {chunk}")
         case "embedquery":
             embed_query_text(args.text)
         case "embed_text":
