@@ -17,8 +17,6 @@ def chunk_text(text, chunk_size=200, overlap=0) -> list[str]:
     for i in range(0, len(words), chunk_size - overlap if chunk_size > overlap else 1):
         chunk = " ".join(words[i : min(i + chunk_size, len(words))])
         chunks.append(chunk)
-        if i + chunk_size >= len(words):
-            break
     return chunks
 
 def semantic_chunk_text(text, max_chunk_size=4, overlap=0) -> list[str]:
@@ -32,11 +30,10 @@ def semantic_chunk_text(text, max_chunk_size=4, overlap=0) -> list[str]:
     Returns:
         list: A list of semantically chunked sentences.
     """
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+    text = text.strip()
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if s]
     chunks = []
     for i in range(0, len(sentences), max_chunk_size - overlap if max_chunk_size > overlap else 1):
-        if i + max_chunk_size > len(sentences):
-            break
-        chunk = " ".join(sentences[i : min(i + max_chunk_size, len(sentences))])
+        chunk = " ".join(sentences[i: min(i + max_chunk_size, len(sentences))])
         chunks.append(chunk)
     return chunks
