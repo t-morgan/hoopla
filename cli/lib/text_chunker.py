@@ -1,3 +1,6 @@
+import re
+
+
 def chunk_text(text, chunk_size=200, overlap=0):
     """Chunk the input text into smaller pieces of specified size.
 
@@ -12,8 +15,28 @@ def chunk_text(text, chunk_size=200, overlap=0):
     chunks = []
     words = text.split()
     for i in range(0, len(words), chunk_size - overlap if chunk_size > overlap else 1):
-        if i + chunk_size > len(words):
+        chunk = " ".join(words[i : min(i + chunk_size, len(words))])
+        chunks.append(chunk)
+        if i + chunk_size >= len(words):
             break
-        chunk = " ".join(words[i : i + chunk_size])
+    return chunks
+
+def semantic_chunk_text(text, max_chunk_size=4, overlap=0):
+    """Chunk the input text semantically into sentence groups of specified size.
+
+    Args:
+        text (str): The input text to be chunked.
+        max_chunk_size (int): The maximum size of each chunk in sentences.
+        overlap (int): The number of overlapping sentences between chunks.
+
+    Returns:
+        list: A list of semantically chunked sentences.
+    """
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    chunks = []
+    for i in range(0, len(sentences), max_chunk_size - overlap if max_chunk_size > overlap else 1):
+        if i + max_chunk_size > len(sentences):
+            break
+        chunk = " ".join(sentences[i : min(i + max_chunk_size, len(sentences))])
         chunks.append(chunk)
     return chunks
