@@ -1,5 +1,5 @@
 import argparse
-from lib.hybrid_search import normalize_vector, search_hybrid_weighted
+from lib.hybrid_search import normalize_vector, search_hybrid_weighted, search_rrf
 
 
 def main() -> None:
@@ -10,6 +10,13 @@ def main() -> None:
         'normalize', help="Normalize scores using vector normalization"
     )
     normalize_parser.add_argument("scores", nargs="+", type=float, help="Scores to normalize")
+
+    rrf_search_parser = subparsers.add_parser(
+        'rrf_search', help="Perform RRF hybrid search"
+    )
+    rrf_search_parser.add_argument("query", type=str, help="Search query")
+    rrf_search_parser.add_argument("--k", type=int, default=60, help="RRF parameter k")
+    rrf_search_parser.add_argument("--limit", type=int, default=5, help="Number of results to return")
 
     weighted_search_parser = subparsers.add_parser(
         'weighted_search', help="Perform weighted hybrid search"
@@ -25,6 +32,8 @@ def main() -> None:
             normalized_vector = normalize_vector(args.scores)
             for score in normalized_vector:
                 print(f"* {score:.4f}")
+        case "rrf_search":
+            search_rrf(args.query, args.k, args.limit)
         case "weighted_search":
             search_hybrid_weighted(args.query, args.alpha, args.limit)
         case _:
