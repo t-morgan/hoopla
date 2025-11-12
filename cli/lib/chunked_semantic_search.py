@@ -1,8 +1,6 @@
 import json
-
 import numpy as np
 import os
-
 from .search_utils import load_movies
 from .semantic_search import SemanticSearch, cosine_similarity
 from .text_chunker import semantic_chunk_text
@@ -14,10 +12,12 @@ METADATA_PATH = os.path.join(CACHE_DIR, "chunk_metadata.json")
 
 
 class ChunkedSemanticSearch(SemanticSearch):
-    def __init__(self, model_name = "all-MiniLM-L6-v2") -> None:
+    def __init__(self, model_name = "all-MiniLM-L6-v2", max_chunk_size=4, overlap=1) -> None:
         super().__init__(model_name)
         self.chunk_embeddings = None
         self.chunk_metadata = None
+        self.max_chunk_size = max_chunk_size
+        self.overlap = overlap
 
     def build_chunk_embeddings(self, documents: list[dict]):
         if not documents:
@@ -32,7 +32,7 @@ class ChunkedSemanticSearch(SemanticSearch):
         for i, doc in enumerate(documents):
             if doc['description'] == '':
                 continue
-            chunks = semantic_chunk_text(doc['description'], max_chunk_size=4, overlap=1)
+            chunks = semantic_chunk_text(doc['description'], max_chunk_size=self.max_chunk_size, overlap=self.overlap)
             all_chunks.extend(chunks)
             for j, chunk in enumerate(chunks):
                 chunk_metadata.append({
@@ -79,6 +79,7 @@ class ChunkedSemanticSearch(SemanticSearch):
             if movie_idx not in seen_movies or score > seen_movies[movie_idx]['score']:
                 movie = self.documents[movie_idx]
                 result = {
+                    'id': movie['id'],
                     'title': movie['title'],
                     'description': movie['description'][:100],
                     'chunk_idx': chunk_info['chunk_idx'],
@@ -90,14 +91,14 @@ class ChunkedSemanticSearch(SemanticSearch):
         results = sorted(seen_movies.values(), key=lambda x: x['score'], reverse=True)[:limit]
         return results
 
-def embed_chunks() -> None:
-    searcher = ChunkedSemanticSearch()
+def embed_chunks(max_chunk_size=4, overlap=1) -> None:
+    searcher = ChunkedSemanticSearch(max_chunk_size=max_chunk_size, overlap=overlap)
     documents = load_movies()
     embeddings = searcher.load_or_create_chunk_embeddings(documents)
     print(f"Generated {len(embeddings)} chunked embeddings")
 
-def search_chunked(query: str, limit: int = 5) -> None:
-    searcher = ChunkedSemanticSearch()
+def search_chunked(query: str, limit: int = 5, max_chunk_size=4, overlap=1) -> None:
+    searcher = ChunkedSemanticSearch(max_chunk_size=max_chunk_size, overlap=overlap)
     documents = load_movies()
     searcher.load_or_create_chunk_embeddings(documents)
     results = searcher.search_chunks(query, limit=limit)
