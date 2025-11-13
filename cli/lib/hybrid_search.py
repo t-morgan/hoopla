@@ -3,6 +3,8 @@ import logging
 import os
 from typing import List, Any, Dict
 
+from sentence_transformers import CrossEncoder
+
 from .inverted_index import InvertedIndex, INDEX_PATH
 from .chunked_semantic_search import ChunkedSemanticSearch
 from .llm_utils import execute_llm_prompt
@@ -247,6 +249,20 @@ Respond ONLY with valid JSON in this exact format, with:
     # Sort globally by rerank_score
     return sorted(results, key=lambda d: d["rerank_score"], reverse=True)
 
+
+def _rerank_cross_encoder(query, results):
+    model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+    texts = [f"{doc.get('title', '')} - {doc.get('document', '')}" for doc in results]
+    queries = [query] * len(texts)
+    scores = model.predict(list(zip(queries, texts)))
+
+    for doc, score in zip(results, scores):
+        doc['rerank_score'] = float(score)
+
+    return sorted(results, key=lambda x: x['rerank_score'], reverse=True)
+
+
 def _rerank_individual(query, results):
     for doc in results:
         prompt = f"""\
@@ -290,6 +306,8 @@ def search_rrf(query, k=60, limit=10, rerank_method=None):
     if rerank_method is not None:
         if rerank_method == "batch":
             results = _rerank_batched(query, results)
+        elif rerank_method == "cross_encoder":
+            results = _rerank_cross_encoder(query, results)
         elif rerank_method == "individual":
             results = _rerank_individual(query, results)
 
