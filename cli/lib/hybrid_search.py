@@ -31,22 +31,22 @@ class HybridSearch:
         ss_scores = [res['score'] for res in ss_results]
         norm_bm25_scores = normalize_vector(bm25_scores)
         norm_ss_scores = normalize_vector(ss_scores)
-        for i, res in enumerate(bm25_results):
+        for res, s in zip(bm25_results, norm_bm25_scores):
             combined_results[res['id']] = {
                 'title': res['title'],
                 'description': res['description'],
-                'bm25_score': norm_bm25_scores[i],
+                'bm25_score': s,
                 'ss_score': 0.0
             }
-        for i, res in enumerate(ss_results):
+        for res, s in zip(ss_results, norm_ss_scores):
             if res['id'] in combined_results:
-                combined_results[res['id']]['ss_score'] = norm_ss_scores[i]
+                combined_results[res['id']]['ss_score'] = s
             else:
                 combined_results[res['id']] = {
                     'title': res['title'],
                     'description': res['description'],
                     'bm25_score': 0.0,
-                    'ss_score': norm_ss_scores[i]
+                    'ss_score': s
                 }
         # add a hybrid score to each result
         for res in combined_results.values():
@@ -85,8 +85,8 @@ class HybridSearch:
         return sorted_results[:limit]
 
 def normalize_vector(vector):
-    min_score = min(vector)
-    max_score = max(vector)
+    min_score = min(vector) if vector else 0.0
+    max_score = max(vector) if vector else 0.0
     return [(score - min_score) / (max_score - min_score) if max_score > min_score else 1.0 for score in vector]
 
 def search_hybrid_weighted(query, alpha, limit=5):
