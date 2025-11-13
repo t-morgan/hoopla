@@ -54,6 +54,28 @@ def _execute_llm_prompt(prompt: str) -> str:
         return ""
 
 
+def _expand_with_llm(query: str) -> str:
+    """
+    Expand a short search query using Google GenAI (Gemini).
+    Falls back to the original query if the API is not configured or any error occurs.
+    """
+    prompt = f"""\
+Expand this movie search query with related terms.
+
+Add synonyms and related concepts that might appear in movie descriptions.
+Keep expansions relevant and focused.
+This will be appended to the original query.
+
+Examples:
+- "scary bear movie" -> "scary horror grizzly bear movie terrifying film"
+- "action movie with bear" -> "action thriller bear chase fight adventure"
+- "comedy with bear" -> "comedy funny bear humor lighthearted"
+
+Query: "{query}"
+"""
+    return _execute_llm_prompt(prompt) or query
+
+
 def _rewrite_with_llm(query: str) -> str:
     """
     Rewrite a short search query using Google GenAI (Gemini).
@@ -116,7 +138,11 @@ def enhance_query(query: str, method: str | None) -> str:
       - "spell": LLM-powered spelling correction.
     If method is None or unrecognized, returns the original query.
     """
-    func = {"spell": _spell_correct_with_llm, "rewrite": _rewrite_with_llm}.get(method)
+    func = {
+        "expand": _expand_with_llm,
+        "rewrite": _rewrite_with_llm,
+        "spell": _spell_correct_with_llm
+    }.get(method)
     if func:
         enhanced_query = func(query)
         print(f"Enhanced query ({method}): '{query}' -> '{enhanced_query}'\n")
