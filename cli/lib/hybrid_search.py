@@ -1,9 +1,15 @@
+import json
+import logging
 import os
+from typing import List, Any, Dict
 
 from .inverted_index import InvertedIndex, INDEX_PATH
 from .chunked_semantic_search import ChunkedSemanticSearch
 from .llm_utils import execute_llm_prompt
 from .search_utils import load_movies
+
+
+logger = logging.getLogger(__name__)
 
 
 class HybridSearch:
@@ -110,6 +116,137 @@ def hybrid_score(bm25_score, semantic_score, alpha=0.5):
     return alpha * bm25_score + (1 - alpha) * semantic_score
 
 
+def _parse_rerank_json(raw: str) -> dict:
+    """
+    Try to extract a JSON object/array from a messy LLM response.
+
+    Handles things like:
+    - Leading 'json' or 'JSON'
+    - Explanatory text before/after
+    - Stray code fences (if any slipped through)
+    """
+    if not raw:
+        raise ValueError("Empty LLM response")
+
+    cleaned = raw.strip()
+
+    # If it starts with 'json' on the first line, strip it
+    if cleaned.lower().startswith("json"):
+        cleaned = cleaned[4:].lstrip()
+
+    # Also handle stray backticks, just in case
+    cleaned = cleaned.strip("`").strip()
+
+    # Try direct json.loads first
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Last-resort: extract the first {...} or [...] block
+        start_candidates = [cleaned.find("{"), cleaned.find("[")]
+        start_candidates = [i for i in start_candidates if i != -1]
+        if not start_candidates:
+            raise
+
+        start = min(start_candidates)
+        end_brace = cleaned.rfind("}")
+        end_bracket = cleaned.rfind("]")
+        end_candidates = [i for i in (end_brace, end_bracket) if i != -1 and i >= start]
+        if not end_candidates:
+            raise
+
+        end = max(end_candidates) + 1
+        snippet = cleaned[start:end]
+
+        return json.loads(snippet)
+
+
+def _rerank_batched(
+    query: str,
+    results: List[Dict[str, Any]],
+    batch_size: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Batched LLM-based reranker.
+
+    For each batch of movies, asks the LLM to return a JSON object like:
+      {"scores":[{"index":0,"score":8.7}, ...]}
+    where 'index' is the position of the movie within that batch.
+    """
+    if not results:
+        return results
+
+    # Initialize rerank_score so we always have *some* value
+    for doc in results:
+        doc.setdefault("rerank_score", 0.0)
+
+    for batch_start in range(0, len(results), batch_size):
+        batch = results[batch_start: batch_start + batch_size]
+
+        # Build a compact, index-based list to keep the response easy to map
+        items_str_lines = []
+        for i, doc in enumerate(batch):
+            idx = i  # index inside this batch
+            title = doc.get("title", "")
+            # use description/document, whichever you actually store
+            description = doc.get("document") or doc.get("description", "")
+            items_str_lines.append(
+                f'{idx}. Title: "{title}"\n   Description: {description}'
+            )
+        items_str = "\n\n".join(items_str_lines)
+
+        prompt = f"""\
+You are scoring how well each movie matches the search query.
+
+Query: "{query}"
+
+Movies:
+{items_str}
+
+For each movie, rate how well it matches the query from 0 to 10
+(10 = perfect match).
+
+Respond ONLY with valid JSON in this exact format, with:
+- NO code fences,
+- NO leading 'json',
+- NO additional text before or after the JSON.
+
+{{
+  "scores": [
+    {{"index": 0, "score": 7.5}},
+    {{"index": 1, "score": 9.0}}
+  ]
+}}
+"""
+
+        raw = execute_llm_prompt(prompt)
+
+        try:
+            data = _parse_rerank_json(raw)
+            scores = data.get("scores", [])
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "Failed to parse batch rerank JSON (batch_start=%s): %s; raw=%r",
+                batch_start,
+                e,
+                raw,
+            )
+            # Leave default rerank_score for this batch and continue
+            continue
+
+        # Apply scores back onto docs in this batch
+        for score_item in scores:
+            try:
+                idx = int(score_item["index"])
+                score_val = float(score_item["score"])
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            if 0 <= idx < len(batch):
+                batch[idx]["rerank_score"] = score_val
+
+    # Sort globally by rerank_score
+    return sorted(results, key=lambda d: d["rerank_score"], reverse=True)
+
 def _rerank_individual(query, results):
     for doc in results:
         prompt = f"""\
@@ -151,7 +288,9 @@ def search_rrf(query, k=60, limit=10, rerank_method=None):
     results = hs.rrf_search(query, k, fetch_limit)
 
     if rerank_method is not None:
-        if rerank_method == "individual":
+        if rerank_method == "batch":
+            results = _rerank_batched(query, results)
+        elif rerank_method == "individual":
             results = _rerank_individual(query, results)
 
     results = results[:base_limit]
