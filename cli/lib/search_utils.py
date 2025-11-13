@@ -1,9 +1,8 @@
 import json
 import os
-import logging
-import google.genai as genai
-from dotenv import load_dotenv
-load_dotenv()
+
+from .llm_utils import execute_llm_prompt
+
 
 BM25_B = 0.75
 BM25_K1 = 1.5
@@ -12,8 +11,6 @@ DEFAULT_SEARCH_LIMIT = 5
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_PATH = os.path.join(PROJECT_ROOT, "data", "movies.json")
 STOPWORDS_PATH = os.path.join(PROJECT_ROOT, "data", "stopwords.txt")
-
-logger = logging.getLogger(__name__)
 
 
 def load_movies() -> list[dict]:
@@ -25,33 +22,6 @@ def load_movies() -> list[dict]:
 def load_stopwords() -> list[str]:
     with open(STOPWORDS_PATH, "r") as f:
         return f.read().splitlines()
-
-
-def _execute_llm_prompt(prompt: str) -> str:
-    """
-    Execute a prompt using Google GenAI (Gemini) and return the response text.
-    """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable is not set.")
-    try:
-        client = genai.Client(api_key=api_key)
-        model = os.getenv("GENAI_MODEL", "gemini-2.5-flash")
-        resp = client.models.generate_content(model=model, contents=prompt)
-        text = (resp.text or "").strip()
-        # Normalize simple wrappers users/models sometimes add
-        if (text.startswith("`") and text.endswith("`")) or (
-                text.startswith("```") and text.endswith("```")
-        ):
-            text = text.strip("`")
-        if (text.startswith('"') and text.endswith('"')) or (
-                text.startswith("'") and text.endswith("'")
-        ):
-            text = text[1:-1].strip()
-        return text
-    except Exception as e:  # noqa: BLE001
-        logger.warning("LLM rewrite error: %s", e)
-        return ""
 
 
 def _expand_with_llm(query: str) -> str:
@@ -73,7 +43,7 @@ Examples:
 
 Query: "{query}"
 """
-    return _execute_llm_prompt(prompt) or query
+    return execute_llm_prompt(prompt) or query
 
 
 def _rewrite_with_llm(query: str) -> str:
@@ -107,7 +77,7 @@ Examples:
 
 Rewritten query:
 """
-    return _execute_llm_prompt(prompt) or query
+    return execute_llm_prompt(prompt) or query
 
 def _spell_correct_with_llm(query: str) -> str:
     """
@@ -127,7 +97,7 @@ Rules:
 
 Query: "{query}"
  """
-    return _execute_llm_prompt(prompt) or query
+    return execute_llm_prompt(prompt) or query
 
 
 def enhance_query(query: str, method: str | None) -> str:
