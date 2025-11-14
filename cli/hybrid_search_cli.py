@@ -1,5 +1,6 @@
 import argparse
 
+from lib.evaluation import evaluate_search
 from lib.hybrid_search import normalize_vector, search_hybrid_weighted, search_rrf, print_results
 from lib.search_utils import enhance_query
 
@@ -23,6 +24,7 @@ def main() -> None:
     rrf_search_parser.add_argument("--limit", type=int, default=5, help="Number of results to return")
     rrf_search_parser.add_argument("--enhance", type=str, choices=ENHANCERS, help="Query enhancement method")
     rrf_search_parser.add_argument("--rerank-method", type=str, choices=["batch", "cross_encoder", "individual"], help="Reranking method to apply after initial search")
+    rrf_search_parser.add_argument("--evaluate", action="store_true", help="Evaluate search performance")
     rrf_search_parser.add_argument("--debug", action="store_true", help="Enable debug logging for RRF search pipeline")
 
     weighted_search_parser = subparsers.add_parser(
@@ -43,7 +45,9 @@ def main() -> None:
         case "rrf_search":
             q = enhance_query(args.query, args.enhance)
             results = search_rrf(q, args.k, args.limit, args.rerank_method, debug=args.debug)
-            print_results(results, show_rerank=args.rerank_method is not None)
+            print_results(results)
+            if args.evaluate:
+                evaluate_search(query=args.query, results=results)
         case "weighted_search":
             q = enhance_query(args.query, args.enhance)
             search_hybrid_weighted(q, args.alpha, args.limit)

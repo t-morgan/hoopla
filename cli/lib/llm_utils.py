@@ -1,5 +1,7 @@
 import os
 import logging
+import random
+import time
 
 from dotenv import load_dotenv
 import google.genai as genai
@@ -36,11 +38,17 @@ def execute_llm_prompt(
 
         # Fallback: check error payload for RESOURCE_EXHAUSTED
         try:
-            payload = getattr(e, "response", None) or {}
-            error = payload.get("error") or {}
-            if error.get("status") == "RESOURCE_EXHAUSTED":
-                return True
-        except Exception: # noqa: BLE001
+            payload = getattr(e, "response", None)
+            if isinstance(payload, dict):
+                error = payload.get("error") or {}
+                if error.get("status") == "RESOURCE_EXHAUSTED":
+                    return True
+            elif hasattr(payload, "error"):
+                error = getattr(payload, "error", None)
+                if isinstance(error, dict) and error.get("status") == "RESOURCE_EXHAUSTED":
+                    return True
+        except Exception as ex: # noqa: BLE001
+            logger.error("Error checking retryable client error: %s", ex)
             pass
 
         return False
@@ -80,7 +88,25 @@ def execute_llm_prompt(
             return ""
 
         except Exception as e:  # noqa: BLE001
-            logger.warning("LLM error: %s", e)
+            # Check if this is a retryable error (503, 429, 500, UNAVAILABLE, etc.)
+            error_str = str(e).lower()
+            is_retryable = any(x in error_str for x in ['503', '429', '500', 'unavailable', 'overloaded', 'resource_exhausted'])
+
+            if attempt < max_retries and is_retryable:
+                # Exponential backoff with jitter
+                sleep_for = base_delay * (2 ** attempt) + random.uniform(0, base_delay)
+                logger.warning(
+                    "LLM transient error (attempt %s/%s): %s; "
+                    "retrying in %.1fs",
+                    attempt + 1,
+                    max_retries,
+                    e,
+                    sleep_for,
+                )
+                time.sleep(sleep_for)
+                continue
+
+            logger.error("LLM error: %s", e)
             return ""
 
     # If we exhausted retries without returning

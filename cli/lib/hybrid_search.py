@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from typing import List, Any, Dict
+import time
 
 from sentence_transformers import CrossEncoder
 
@@ -166,13 +167,11 @@ def _rerank_batched(
     query: str,
     results: List[Dict[str, Any]],
     batch_size: int = 10,
+    max_batch_retries: int = 3,
+    base_delay: float = 1.0,
 ) -> List[Dict[str, Any]]:
     """
-    Batched LLM-based reranker.
-
-    For each batch of movies, asks the LLM to return a JSON object like:
-      {"scores":[{"index":0,"score":8.7}, ...]}
-    where 'index' is the position of the movie within that batch.
+    Batched LLM-based reranker with retry logic for each batch.
     """
     if not results:
         return results
@@ -183,13 +182,10 @@ def _rerank_batched(
 
     for batch_start in range(0, len(results), batch_size):
         batch = results[batch_start: batch_start + batch_size]
-
-        # Build a compact, index-based list to keep the response easy to map
         items_str_lines = []
         for i, doc in enumerate(batch):
-            idx = i  # index inside this batch
+            idx = i
             title = doc.get("title", "")
-            # use description/document, whichever you actually store
             description = doc.get("document") or doc.get("description", "")
             items_str_lines.append(
                 f'{idx}. Title: "{title}"\n   Description: {description}'
@@ -220,19 +216,34 @@ Respond ONLY with valid JSON in this exact format, with:
 }}
 """
 
-        raw = execute_llm_prompt(prompt)
-
-        try:
-            data = _parse_rerank_json(raw)
-            scores = data.get("scores", [])
-        except Exception as e:  # noqa: BLE001
-            logger.warning(
-                "Failed to parse batch rerank JSON (batch_start=%s): %s; raw=%r",
+        batch_success = False
+        for attempt in range(max_batch_retries):
+            raw = execute_llm_prompt(prompt)
+            try:
+                data = _parse_rerank_json(raw)
+                scores = data.get("scores", [])
+                batch_success = True
+                break
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to parse batch rerank JSON (batch_start=%s, attempt=%d): %s; raw=%r",
+                    batch_start,
+                    attempt + 1,
+                    e,
+                    raw,
+                )
+                if attempt < max_batch_retries - 1:
+                    sleep_for = base_delay * (2 ** attempt)
+                    logger.warning(
+                        "Retrying batch %d in %.1fs...", batch_start, sleep_for
+                    )
+                    time.sleep(sleep_for)
+        if not batch_success:
+            logger.error(
+                "Batch rerank failed after %d attempts (batch_start=%d). Skipping batch.",
+                max_batch_retries,
                 batch_start,
-                e,
-                raw,
             )
-            # Leave default rerank_score for this batch and continue
             continue
 
         # Apply scores back onto docs in this batch
@@ -242,7 +253,6 @@ Respond ONLY with valid JSON in this exact format, with:
                 score_val = float(score_item["score"])
             except (KeyError, TypeError, ValueError):
                 continue
-
             if 0 <= idx < len(batch):
                 batch[idx]["rerank_score"] = score_val
 
