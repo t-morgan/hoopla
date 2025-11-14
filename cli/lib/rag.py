@@ -47,7 +47,31 @@ Provide a comprehensive answer that addresses the query:"""
     llm_response = execute_llm_prompt(prompt)
     # Print the results
     print("Search Results:")
-    for movie in search_results:
-        print(f"  - {movie['title']}")
+    print(docs)
     print("\nRAG Response:")
+    print(llm_response)
+
+
+def get_summary(query: str, limit: int = 5):
+    # Perform RRF search
+    search_results = search_rrf(query, k=limit)
+
+    # Prepare documents for the prompt
+    docs = "\n".join([f"- {movie['title']}" for movie in search_results])
+
+    # Create the prompt for Gemini API
+    prompt = f"""\
+Provide information useful to this query by synthesizing information from multiple search results in detail.
+The goal is to provide comprehensive information so that users know what their options are.
+Your response should be information-dense and concise, with several key pieces of information about the genre, plot, etc. of each movie.
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+Query: {query}
+Search Results:
+{docs}
+Provide a comprehensive 3–4 sentence answer that combines information from multiple sources:
+"""
+    llm_response = execute_llm_prompt(prompt)
+    print("Search Results:")
+    print(docs)
+    print("\nLLM Summary:")
     print(llm_response)
