@@ -311,16 +311,17 @@ def search_rrf(query, k=60, limit=10, rerank_method=None):
         elif rerank_method == "individual":
             results = _rerank_individual(query, results)
 
-    results = results[:base_limit]
+    return results[:base_limit]
 
+
+def print_results(results, show_rerank=False):
     for i, res in enumerate(results, 1):
         print(f"{i}. {res['title']}")
-        if rerank_method is not None:
+        if show_rerank:
             print(f"Rerank Score: {res.get('rerank_score', 'N/A')}")
         print(f"RRF Score: {res['rrf_score']:.4f}")
         print(f"BM25 Rank: {res['bm25_rank']}, Semantic Rank: {res['ss_rank']}")
         print(f"{res['description']}\n")
-
 
 def rrf_score(rank, k=60):
     return 1 / (k + rank)

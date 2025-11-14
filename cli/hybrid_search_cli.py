@@ -1,5 +1,6 @@
 import argparse
-from lib.hybrid_search import normalize_vector, search_hybrid_weighted, search_rrf
+
+from lib.hybrid_search import normalize_vector, search_hybrid_weighted, search_rrf, print_results
 from lib.search_utils import enhance_query
 
 ENHANCERS = ["expand", "rewrite", "spell"]
@@ -40,7 +41,8 @@ def main() -> None:
                 print(f"* {score:.4f}")
         case "rrf_search":
             q = enhance_query(args.query, args.enhance)
-            search_rrf(q, args.k, args.limit, args.rerank_method)
+            results = search_rrf(q, args.k, args.limit, args.rerank_method)
+            print_results(results, show_rerank=args.rerank_method is not None)
         case "weighted_search":
             q = enhance_query(args.query, args.enhance)
             search_hybrid_weighted(q, args.alpha, args.limit)
