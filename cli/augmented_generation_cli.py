@@ -1,11 +1,17 @@
 import argparse
 
-from lib.rag import perform_rag, get_summary
+from lib.rag import perform_rag, get_summary, perform_rag_with_citations
 
 
 def main():
     parser = argparse.ArgumentParser(description="Retrieval Augmented Generation CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    citations_parser = subparsers.add_parser(
+        "citations", help="Perform RAG with citations"
+    )
+    citations_parser.add_argument("query", type=str, help="Search query for RAG with citations")
+    citations_parser.add_argument("--limit", type=int, default=5, help="Number of top results to include as citations")
 
     rag_parser = subparsers.add_parser(
         "rag", help="Perform RAG (search + generate answer)"
@@ -21,6 +27,9 @@ def main():
     args = parser.parse_args()
 
     match args.command:
+        case "citations":
+            query = args.query
+            perform_rag_with_citations(query, limit=args.limit)
         case "rag":
             query = args.query
             perform_rag(query)
