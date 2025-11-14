@@ -291,7 +291,11 @@ Score:"""
 RERANK_MULTIPLIER = 5
 
 
-def search_rrf(query, k=60, limit=10, rerank_method=None):
+def search_rrf(query, k=60, limit=10, rerank_method=None, debug=False):
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+        logger.debug(f"Original query: {query}")
+
     documents = load_movies()
     hs = HybridSearch(documents)
 
@@ -301,17 +305,26 @@ def search_rrf(query, k=60, limit=10, rerank_method=None):
     if rerank_method is not None:
         fetch_limit *= RERANK_MULTIPLIER  # increase limit for reranking
 
-    results = hs.rrf_search(query, k, fetch_limit)
+    # Log query after enhancements (already enhanced in CLI)
+    if debug:
+        logger.debug(f"Query after enhancements: {query}")
 
+    results = hs.rrf_search(query, k, fetch_limit)
+    if debug:
+        logger.debug(f"Results after RRF search: {json.dumps(results[:base_limit], indent=2)}")
+
+    final_results = results
     if rerank_method is not None:
         if rerank_method == "batch":
-            results = _rerank_batched(query, results)
+            final_results = _rerank_batched(query, results)
         elif rerank_method == "cross_encoder":
-            results = _rerank_cross_encoder(query, results)
+            final_results = _rerank_cross_encoder(query, results)
         elif rerank_method == "individual":
-            results = _rerank_individual(query, results)
+            final_results = _rerank_individual(query, results)
+        if debug:
+            logger.debug(f"Final results after re-ranking: {json.dumps(final_results[:base_limit], indent=2)}")
 
-    return results[:base_limit]
+    return final_results[:base_limit]
 
 
 def print_results(results, show_rerank=False):
