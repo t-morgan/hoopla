@@ -2,6 +2,39 @@ from .hybrid_search import search_rrf
 from .llm_utils import execute_llm_prompt
 
 
+def answer_question(query: str, limit: int = 5):
+    # Perform RRF search
+    search_results = search_rrf(query, k=limit)
+
+    # Prepare documents for the prompt
+    docs = "\n".join([f"- {movie['title']} --- {movie['description']}" for movie in search_results])
+
+    # Create the prompt for Gemini API
+    prompt = f"""\
+Answer the user's question based on the provided movies that are available on Hoopla.
+
+This should be tailored to Hoopla users. Hoopla is a movie streaming service.
+
+Question: {query}
+
+Documents:
+{docs}
+
+Instructions:
+- Answer questions directly and concisely
+- Be casual and conversational
+- Don't be cringe or hype-y
+- Talk like a normal person would in a chat conversation
+
+Answer:"""
+
+    llm_response = execute_llm_prompt(prompt)
+    # Print the results
+    print("Search Results:")
+    print(docs)
+    print("\nAnswer:")
+    print(llm_response)
+
 def perform_rag_with_citations(query: str, limit: int = 5):
     # Perform RRF search
     search_results = search_rrf(query, k=limit)
