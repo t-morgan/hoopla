@@ -4,7 +4,7 @@ from lib.image_search import describe_image
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Retrieval Augmented Generation CLI")
+    parser = argparse.ArgumentParser(description="Describe Image CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     describe_parser = subparsers.add_parser(
