@@ -91,16 +91,18 @@ class ChunkedSemanticSearch(SemanticSearch):
         results = sorted(seen_movies.values(), key=lambda x: x['score'], reverse=True)[:limit]
         return results
 
-def embed_chunks(max_chunk_size=4, overlap=1) -> None:
+def embed_chunks(max_chunk_size=4, overlap=1, movies=None) -> None:
     searcher = ChunkedSemanticSearch(max_chunk_size=max_chunk_size, overlap=overlap)
-    documents = load_movies()
-    embeddings = searcher.load_or_create_chunk_embeddings(documents)
+    if movies is None:
+        movies = load_movies()
+    embeddings = searcher.load_or_create_chunk_embeddings(movies)
     print(f"Generated {len(embeddings)} chunked embeddings")
 
-def search_chunked(query: str, limit: int = 5, max_chunk_size=4, overlap=1) -> None:
+def search_chunked(query: str, limit: int = 5, max_chunk_size=4, overlap=1, movies=None) -> None:
     searcher = ChunkedSemanticSearch(max_chunk_size=max_chunk_size, overlap=overlap)
-    documents = load_movies()
-    searcher.load_or_create_chunk_embeddings(documents)
+    if movies is None:
+        movies = load_movies()
+    searcher.load_or_create_chunk_embeddings(movies)
     results = searcher.search_chunks(query, limit=limit)
     for i, result in enumerate(results, 1):
         print(f"{i}. {result['title']} (Score: {result['score']:.4f})")

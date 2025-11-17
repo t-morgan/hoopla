@@ -1,0 +1,15 @@
+# direnv configuration for hoopla project
+# If you use direnv (https://direnv.net/), this will automatically activate the uv venv
+
+# Activate the uv virtual environment
+layout python python3.11
+
+# Set environment to use .venv if it exists
+if [ -d .venv ]; then
+    source .venv/bin/activate
+fi
+
+# Reminder message
+echo "🎯 Remember: Use 'uv run pytest' to run tests!"
+echo "   Quick: 'make test' or './test.sh'"
+

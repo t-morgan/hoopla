@@ -54,9 +54,10 @@ class SemanticSearch:
         for idx in top_k_indices:
             doc = self.documents[idx]
             results.append({
+                'id': doc['id'],
                 'title': doc['title'],
                 'description': doc['description'],
-                'score': similarities[idx]
+                'score': float(similarities[idx])
             })
         return results
 
@@ -67,7 +68,7 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     norm2 = np.linalg.norm(vec2)
     if norm1 == 0 or norm2 == 0:
         raise ValueError("One or both vectors are zero-vectors")
-    return np.dot(vec1, vec2) / (norm1 * norm2)
+    return float(np.dot(vec1, vec2) / (norm1 * norm2))
 
 def embed_query_text(query: str):
     ss = SemanticSearch()
@@ -83,21 +84,24 @@ def embed_text(text: str):
     print(f"First 3 dimensions: {embedding[:3]}")
     print(f"Dimensions: {embedding.shape[0]}")
 
-def search_movies(query: str, limit: int = 5):
+def search_movies(query: str, limit: int = 5, movies: list = None):
     ss = SemanticSearch()
-    movies = load_movies()
+    if movies is None:
+        movies = load_movies()
     ss.load_or_create_embeddings(movies)
     results = ss.search(query, top_k=limit)
     for i, result in enumerate(results, 1):
         print(f"{i}. {result['title']} (Score: {result['score']:.4f})")
         print(f"   Description: {result['description']}\n")
+    return results
 
-def verify_embeddings():
+def verify_embeddings(movies: list = None):
     ss = SemanticSearch()
-    movies = load_movies()
+    if movies is None:
+        movies = load_movies()
     embeddings = ss.load_or_create_embeddings(movies)
     print(f"Number of docs:   {len(movies)}")
-    print(f"Embeddings shape: {embeddings.shape[0]} vectors in {embeddings.shape[1]} dimensions")
+    print(f"Embeddings shape: {int(embeddings.shape[0])} vectors in {int(embeddings.shape[1])} dimensions")
 
 def verify_model():
     try:

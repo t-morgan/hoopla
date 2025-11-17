@@ -118,3 +118,14 @@ def enhance_query(query: str, method: str | None) -> str:
         print(f"Enhanced query ({method}): '{query}' -> '{enhanced_query}'\n")
         return enhanced_query
     return query
+
+def normalize_text(text: str, *, strip_accents: bool = False) -> str:
+    """Normalize movie-related text: lowercase, strip punctuation, collapse whitespace, optionally strip accents."""
+    import re, unicodedata
+    if strip_accents:
+        text = unicodedata.normalize("NFKD", text)
+        text = "".join(c for c in text if not unicodedata.combining(c))
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text

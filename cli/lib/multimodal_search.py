@@ -39,9 +39,10 @@ class MultimodalSearch:
         return similarities[:5]
 
 
-def image_search_command(image_path):
-    documents = load_movies()
-    search = MultimodalSearch(documents=documents)
+def image_search_command(image_path, movies=None):
+    if movies is None:
+        movies = load_movies()
+    search = MultimodalSearch(documents=movies)
     results = search.search_with_image(image_path)
     return results
 

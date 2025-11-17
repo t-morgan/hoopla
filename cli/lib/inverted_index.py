@@ -23,7 +23,8 @@ class InvertedIndex:
         self.docmap: Dict[int, dict] = {}
         self.term_frequencies: Counter[str] = Counter()
         self.doc_lengths: Dict[int, int] = {}
-    
+        self.movies = None
+
     def get_bm25_idf(self, term:str) -> float:
         tokens = self.tokenize(term)
         if len(tokens) == 0 or len(tokens) > 1:
@@ -78,8 +79,9 @@ class InvertedIndex:
         return tf * idf
 
     def build(self) -> None:
-        movies = load_movies()
-        for movie in movies:
+        if self.movies is None:
+            self.movies = load_movies()
+        for movie in self.movies:
             self.__add_document(movie["id"], self.__get_doc_text(movie))
             self.docmap[movie["id"]] = movie
     

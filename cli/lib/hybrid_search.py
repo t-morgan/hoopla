@@ -104,9 +104,10 @@ def normalize_vector(vector):
     return [(score - min_score) / (max_score - min_score) if max_score > min_score else 1.0 for score in vector]
 
 
-def search_hybrid_weighted(query, alpha, limit=5):
-    documents = load_movies()
-    hs = HybridSearch(documents)
+def search_hybrid_weighted(query, alpha, limit=5, movies=None):
+    if movies is None:
+        movies = load_movies()
+    hs = HybridSearch(movies)
     results = hs.weighted_search(query, alpha, limit)
     for i, res in enumerate(results, 1):
         print(f"{i}. {res['title']} (Hybrid Score: {res['hybrid_score']:.4f})")
@@ -301,21 +302,17 @@ Score:"""
 RERANK_MULTIPLIER = 5
 
 
-def search_rrf(query, k=60, limit=10, rerank_method=None, debug=False):
+def search_rrf(query, k=60, limit=10, rerank_method=None, debug=False, movies=None):
     if debug:
         logging.basicConfig(level=logging.DEBUG)
         logger.debug(f"Original query: {query}")
-
-    documents = load_movies()
-    hs = HybridSearch(documents)
-
+    if movies is None:
+        movies = load_movies()
+    hs = HybridSearch(movies)
     base_limit = limit
     fetch_limit = base_limit
-
     if rerank_method is not None:
         fetch_limit *= RERANK_MULTIPLIER  # increase limit for reranking
-
-    # Log query after enhancements (already enhanced in CLI)
     if debug:
         logger.debug(f"Query after enhancements: {query}")
 
