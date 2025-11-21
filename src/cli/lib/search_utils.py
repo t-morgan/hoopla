@@ -1,6 +1,7 @@
 import json
 import os
-
+from typing import Any
+from movies.normalization import Movie
 from .llm_utils import execute_llm_prompt
 
 
@@ -8,15 +9,60 @@ BM25_B = 0.75
 BM25_K1 = 1.5
 DEFAULT_SEARCH_LIMIT = 5
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+# Compute project root robustly
+SCRIPT_PATH = os.path.abspath(__file__)
+PROJECT_ROOT = SCRIPT_PATH
+for _ in range(4):
+    PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
 DATA_PATH = os.path.join(PROJECT_ROOT, "data", "movies.json")
 STOPWORDS_PATH = os.path.join(PROJECT_ROOT, "data", "stopwords.txt")
+CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
+INDEX_PATH = os.path.join(CACHE_DIR, "index.pkl")
 
 
-def load_movies() -> list[dict]:
+def _validate_movie_record(movie: dict, idx: int) -> None:
+    required_fields = {
+        "id": int,
+        "title": str,
+        "description": str,
+        "cast": list,
+        "genre": list,
+    }
+    for field, expected_type in required_fields.items():
+        if field not in movie:
+            raise ValueError(f"Movie at index {idx} missing required field '{field}'")
+        value = movie[field]
+        if field == "cast":
+            if not isinstance(value, list):
+                raise TypeError(f"Movie at index {idx} field 'cast' must be a list")
+            # Accept list of dicts with 'name' or list of strings
+            if value and isinstance(value[0], dict):
+                for c in value:
+                    if not isinstance(c, dict) or "name" not in c:
+                        raise TypeError(f"Movie at index {idx} field 'cast' must be a list of dicts with 'name' keys")
+            elif value and not all(isinstance(c, str) for c in value):
+                raise TypeError(f"Movie at index {idx} field 'cast' must be a list of strings or dicts with 'name'")
+        elif field == "genre":
+            # Accept legacy: if genre is a string, wrap in a list
+            if isinstance(value, str):
+                # Normalize legacy genre string to list
+                movie["genre"] = [value]
+                value = movie["genre"]
+            if not isinstance(value, list) or not all(isinstance(g, str) for g in value):
+                raise TypeError(f"Movie at index {idx} field 'genre' must be a list of strings")
+        elif not isinstance(value, expected_type):
+            raise TypeError(f"Movie at index {idx} field '{field}' must be of type {expected_type.__name__}")
+
+
+def load_movies() -> list[Movie]:
     with open(DATA_PATH, "r") as f:
         data = json.load(f)
-    return data["movies"]
+    if not isinstance(data, dict) or "movies" not in data or not isinstance(data["movies"], list):
+        raise ValueError("data/movies.json must have shape { 'movies': [ ... ] }")
+    movies = data["movies"]
+    for idx, movie in enumerate(movies):
+        _validate_movie_record(movie, idx)
+    return movies
 
 
 def load_stopwords() -> list[str]:

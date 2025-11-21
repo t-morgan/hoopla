@@ -4,6 +4,7 @@ import os
 from .search_utils import load_movies
 from .semantic_search import SemanticSearch, cosine_similarity
 from .text_chunker import semantic_chunk_text
+from .inverted_index import movie_to_search_text
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
@@ -30,9 +31,10 @@ class ChunkedSemanticSearch(SemanticSearch):
         chunk_metadata: list[dict] = []
 
         for i, doc in enumerate(documents):
-            if doc['description'] == '':
+            text = movie_to_search_text(doc)
+            if not text:
                 continue
-            chunks = semantic_chunk_text(doc['description'], max_chunk_size=self.max_chunk_size, overlap=self.overlap)
+            chunks = semantic_chunk_text(text, max_chunk_size=self.max_chunk_size, overlap=self.overlap)
             all_chunks.extend(chunks)
             for j, chunk in enumerate(chunks):
                 chunk_metadata.append({

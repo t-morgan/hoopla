@@ -5,6 +5,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 
 from .search_utils import load_movies
+from .inverted_index import movie_to_search_text
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 CACHE_DIR = os.path.join(PROJECT_ROOT, "cache")
@@ -17,12 +18,12 @@ class SemanticSearch:
         self.documents = None
         self.document_map = None
 
-    def build_embeddings(self, documents: list[Dict]):
+    def build_embeddings(self, documents: list[dict]):
         if not documents:
             raise ValueError("Document list cannot be empty.")
         self.documents = documents
         self.document_map = {doc['id']: doc for doc in documents}
-        doc_strings = [str(f"{doc['title']}: {doc['description']}") for doc in documents]
+        doc_strings = [movie_to_search_text(doc) for doc in documents]
         self.embeddings = np.array(self.model.encode(doc_strings, show_progress_bar=True))
         np.save(EMBEDDINGS_PATH, self.embeddings)
         return self.embeddings

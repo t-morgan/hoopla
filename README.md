@@ -27,27 +27,31 @@ pip install -e .
 
 ## Quickstart
 
+**Important:** Always run CLI and scripts with `PYTHONPATH=src` to ensure imports work with the src layout.
+
 Run a search:
 
 ```bash
-uv run python cli/agentic_rag_cli.py search "scary bear movies in the forest"
+PYTHONPATH=src uv run python src/cli/agentic_rag_cli.py search "scary bear movies in the forest"
 ```
 
 Generate an answer:
 
 ```bash
-uv run python cli/agentic_rag_cli.py generate "find action movies with bears"
+PYTHONPATH=src uv run python src/cli/agentic_rag_cli.py generate "find action movies with bears"
 ```
 
 With options:
 
 ```bash
-uv run python cli/agentic_rag_cli.py search "leonardo dicaprio" \
+PYTHONPATH=src uv run python src/cli/agentic_rag_cli.py search "leonardo dicaprio" \
   --max-iterations 5 \
   --max-results 10 \
   --limit 5 \
   --debug
 ```
+
+> If you see `ModuleNotFoundError: No module named 'movies'`, you likely forgot to set `PYTHONPATH=src`.
 
 ## Python API
 
@@ -64,26 +68,27 @@ answer = agent.search_and_generate("find action movies with bears")
 ## Project Structure
 
 ```
-cli/
-├── agentic_rag_cli.py          # CLI entrypoint
-├── lib/
-│   ├── agentic_rag.py          # Main AgenticRAG orchestrator
-│   └── agentic_tools/          # Modular search tool implementations
-│       ├── __init__.py         # Tool exports
-│       ├── base.py             # SearchTool abstract base class
-│       ├── constants.py        # Shared constants (genre synonyms, etc.)
-│       ├── utils.py            # Shared utilities
-│       ├── keyword_search_tool.py
-│       ├── semantic_search_tool.py
-│       ├── hybrid_search_tool.py
-│       ├── regex_search_tool.py
-│       ├── genre_search_tool.py
-│       └── actor_search_tool.py
-data/
-├── movies.json                 # Movie dataset
-└── golden_dataset.json         # Test/evaluation data
-docs/
-└── AGENTIC_RAG_IMPLEMENTATION.md  # Detailed architecture docs
+src/
+├── cli/
+│   ├── agentic_rag_cli.py          # CLI entrypoint
+│   └── lib/
+│       ├── agentic_rag.py          # Main AgenticRAG orchestrator
+│       └── agentic_tools/          # Modular search tool implementations
+│           ├── __init__.py         # Tool exports
+│           ├── base.py             # SearchTool abstract base class
+│           ├── constants.py        # Shared constants (genre synonyms, etc.)
+│           ├── utils.py            # Shared utilities
+│           ├── keyword_search_tool.py
+│           ├── semantic_search_tool.py
+│           ├── hybrid_search_tool.py
+│           ├── regex_search_tool.py
+│           ├── genre_search_tool.py
+│           └── actor_search_tool.py
+├── data/
+│   ├── movies.json                 # Movie dataset
+│   └── golden_dataset.json         # Test/evaluation data
+└── docs/
+    └── AGENTIC_RAG_IMPLEMENTATION.md  # Detailed architecture docs
 ```
 
 ## Documentation
@@ -121,3 +126,108 @@ make test-slow     # Run only slow integration tests
 
 ## License
 TBD
+
+# Hoopla Movie Search System
+
+## Project Layout
+
+- All core code is under `src/`:
+  - `src/movies/` (TMDB client, normalization, etc.)
+  - `src/cli/` (CLI tools)
+  - `src/build/` (build utilities)
+- Scripts are in `scripts/`
+- Tests are in `tests/`
+- Data files are in `data/`
+
+## Environment Setup
+
+- Store your TMDB API key in a `.env` file or as an environment variable:
+  ```sh
+  TMDB_API_KEY=your_api_key_here
+  ```
+- The pipeline loads `.env` automatically using `python-dotenv`.
+
+## Movie Schema
+
+Each movie in `data/movies.json` has the following shape:
+
+```
+{
+  "id": 123,
+  "title": "Paddington",
+  "description": "A polite bear in London... (OMDb full plot if available, otherwise TMDB overview)",
+  "cast": ["Ben Whishaw", "Hugh Bonneville", "Sally Hawkins"],
+  "genre": ["Comedy", "Family", "Adventure"]
+}
+```
+- `description` is the long-form plot from OMDb (full plot) when available; otherwise, it falls back to TMDB's overview.
+- `genre` is a list of genre names from TMDB. Some movies have multiple genres; some may have an empty list.
+- All genre entries are included in the searchable text for BM25 and embeddings.
+
+## Building the Dataset
+
+Run the pipeline to generate `data/movies.json`:
+
+```sh
+PYTHONPATH=src uv run scripts/build_movies_json.py --limit 5000 --language en-US
+```
+
+- `--limit`: Number of movies to sample (excluding golden titles)
+- `--language`: Language for TMDB queries (default: en-US)
+
+## Golden Guarantee
+
+All movie titles listed in `data/golden_dataset.json` (`relevant_docs`) are always included in the output. If any cannot be found via TMDB, the build fails with a clear error.
+
+## OMDb Enrichment Modes
+
+- By default, the pipeline will attempt to enrich movie descriptions with OMDb full plots, up to the OMDb API daily limit (default: 1000 requests).
+- Use `--omdb-only` to run in cache-only mode: no new OMDb requests are made, only cached plots are used for enrichment.
+- Use `--omdb-max-requests N` to set a custom OMDb request limit per run.
+- If OMDb returns 401 Unauthorized, further OMDb requests are skipped for the run.
+
+**OMDb enrichment is incremental and cache-based:**
+- The pipeline will always produce a complete `movies.json`, using TMDB overview for any movie not yet enriched by OMDb.
+- OMDb plots are cached to disk and reused in future runs.
+- You can safely run the pipeline multiple times (with or without `--omdb-only`) to gradually fill the cache and maximize OMDb coverage without exceeding daily limits.
+- Golden title rules are always enforced: all golden titles are present, and missing TMDB titles will fail the build.
+
+### Example Usage
+
+```sh
+# Build with OMDb enrichment (up to 1000 requests)
+PYTHONPATH=src uv run scripts/build_movies_json.py --limit 5000 --language en-US
+
+# Build using only cached OMDb plots (no new OMDb requests)
+PYTHONPATH=src uv run scripts/build_movies_json.py --limit 5000 --language en-US --omdb-only
+
+# Build with a custom OMDb request limit
+PYTHONPATH=src uv run scripts/build_movies_json.py --limit 5000 --language en-US --omdb-max-requests 200
+```
+
+- The pipeline will always produce a complete movies.json, using TMDB overview for any movie not yet enriched by OMDb.
+- OMDb enrichment is incremental: run the pipeline over multiple days to gradually fill the cache and maximize OMDb coverage.
+
+## Testing
+
+- Tests mock TMDB API calls and do **not** hit the real TMDB service.
+- Run all tests with:
+  ```sh
+  PYTHONPATH=src uv run pytest
+  ```
+
+## Example Workflow
+
+```sh
+# Set your API key
+export TMDB_API_KEY=your_api_key_here
+
+# Build the dataset
+PYTHONPATH=src uv run scripts/build_movies_json.py --limit 5000 --language en-US
+
+# Run tests
+PYTHONPATH=src uv run pytest
+```
+
+---
+For more details, see `docs/data_pipeline_tmdb.md` and the implementation in `src/` and `scripts/`.

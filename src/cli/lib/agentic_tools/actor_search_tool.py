@@ -62,14 +62,23 @@ class ActorSearchTool(SearchTool):
     def _actor_strength(self, actor_name_norm: str, movie: dict) -> float:
         text_raw = f"{movie.get('title', '')} {movie.get('description', '')}"
         text_norm = self._normalize_text(text_raw)
-        # Full-name substring is strongest
+        # Check cast field for direct match
+        cast = movie.get("cast", [])
+        cast_names = []
+        if cast and isinstance(cast[0], dict):
+            cast_names = [self._normalize_text(c.get("name", "")) for c in cast if isinstance(c, dict) and "name" in c]
+        else:
+            cast_names = [self._normalize_text(str(c)) for c in cast]
+        if actor_name_norm in cast_names:
+            return 1.0
+        # Full-name substring is strongest in text
         if actor_name_norm in text_norm:
             return 1.0
         # Last-name heuristic
         tokens = actor_name_norm.split()
         if isinstance(tokens, list) and len(tokens) >= 2:
             last = tokens[-1]
-            if last in text_norm:
+            if last in text_norm or any(last in cn for cn in cast_names):
                 return 0.9
         # Fuzzy fallback (global; crude but fine as a backup)
         ratio = SequenceMatcher(None, actor_name_norm, text_norm).ratio()
@@ -112,4 +121,3 @@ class ActorSearchTool(SearchTool):
 
         scored_results.sort(key=lambda m: m.get("score", 0.0), reverse=True)
         return scored_results[:limit]
-

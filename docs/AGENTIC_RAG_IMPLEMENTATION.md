@@ -88,12 +88,16 @@ Guidelines:
 
 ## Usage
 
+**Important:** Always run CLI and scripts with `PYTHONPATH=src` to ensure imports work with the src layout.
+
 CLI:
 
 ```bash
-uv run python cli/agentic_rag_cli.py search "your query"
-uv run python cli/agentic_rag_cli.py generate "your question"
+PYTHONPATH=src uv run python src/cli/agentic_rag_cli.py search "your query"
+PYTHONPATH=src uv run python src/cli/agentic_rag_cli.py generate "your question"
 ```
+
+> If you see `ModuleNotFoundError: No module named 'movies'`, you likely forgot to set `PYTHONPATH=src`.
 
 Python API:
 
@@ -152,4 +156,3 @@ To add a new search tool:
    ```
 
 The LLM will automatically discover and use your tool based on its description.
-

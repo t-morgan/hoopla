@@ -62,11 +62,11 @@ class GenreSearchTool(SearchTool):
     def _get_movie_genres(self, movie: dict) -> list[str]:
         """Extract normalized canonical genres from movie metadata if present.
 
-        Assumes movie may have:
-        - movie["genres"]: list of strings (preferred)
+        Assumes movie has:
+        - movie["genre"]: list of strings (preferred)
         - or genre-like terms only in description/title (fallback handled separately)
         """
-        raw_genres = movie.get("genres") or movie.get("genre") or []
+        raw_genres = movie.get("genre", [])
         if isinstance(raw_genres, str):
             raw_genres = [raw_genres]
 
@@ -79,14 +79,10 @@ class GenreSearchTool(SearchTool):
                 continue
 
             # Try mapping via synonyms
-            if g_norm in self.synonym_to_canonical:
-                normalized_genres.add(self.synonym_to_canonical[g_norm])
-                continue
-
-            # As a fallback, see if any canonical genre is contained in the string
-            for canon, syns in self.genre_synonyms.items():
-                if canon in g_norm or any(self._normalize_text(s) in g_norm for s in syns):
+            for syn_norm, canon in self.synonym_to_canonical.items():
+                if syn_norm == g_norm:
                     normalized_genres.add(canon)
+                    break
 
         return list(normalized_genres)
 
@@ -177,4 +173,3 @@ class GenreSearchTool(SearchTool):
         results.sort(key=lambda r: r.get("score", 0.0), reverse=True)
 
         return results[:limit]
-

@@ -16,10 +16,16 @@ def test_search_respects_limit():
 
 
 def test_search_returns_list():
-    """Test that search always returns a list."""
-    movies = load_movies()
-    tool = ActorSearchTool(movies)
-
-    results = tool.search("Someone", limit=5)
-
+    from cli.lib.inverted_index import InvertedIndex
+    idx = InvertedIndex()
+    movies = [
+        {"id": 1, "title": "Paddington", "description": "Bear", "cast": ["Ben"], "genre": ["Comedy", "Family"]},
+        {"id": 2, "title": "Ted", "description": "Bear", "cast": ["Mark"], "genre": ["Comedy"]},
+    ]
+    idx.movies = movies
+    idx.build()
+    results = idx.search("Bear", limit=2)
     assert isinstance(results, list)
+    for m in results:
+        assert isinstance(m["genre"], list)
+        assert any(g in m["genre"] for g in ["Comedy", "Family"])
